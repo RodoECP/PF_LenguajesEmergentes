@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Grid de Autores y Libros</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.css" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/2.1.8/js/dataTables.js"></script>
+
+  <style>
+    /* Estilos para el modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 30%;
+    }
+
+    .close-button {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .close-button:hover,
+    .close-button:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  
+<h1>Grid de Autores</h1>
+<button onclick="abrirModalAgregarAutor()">Agregar Autor</button>
+<table id="tabla-autores" class="display">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<h1>Grid de Libros</h1>
+<button onclick="abrirModalAgregarLibro()">Agregar Libro</button>
+<table id="tabla-libros" class="display">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Título</th>
+      <th>Autor</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<div id="modalAgregarAutor" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="cerrarModalAgregarAutor()">&times;</span>
+    <h2>Agregar Autor</h2>
+    <form id="formAgregarAutor">
+      {% csrf_token %}
+      <label for="nombre">Nombre:</label>
+      <input type="text" id="nombre" name="nombre" required>
+      <button type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<div id="modalAgregarLibro" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="cerrarModalAgregarLibro()">&times;</span>
+    <h2>Agregar Libro</h2>
+    <form id="formAgregarLibro">
+      {% csrf_token %}
+      <label for="titulo">Título:</label>
+      <input type="text" id="titulo" name="titulo" required>
+      <label for="autor">Autor:</label>
+      <select id="autor" name="autor" required>
+        {% for autor in autores %}
+          <option value="{{ autor.id }}">{{ autor.nombre }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<script>
+$(document).ready( function () {
+    var tablaAutores = $('#tabla-autores').DataTable({
+        "ajax": "/obtener_autores/",
+        "columns": [
+            { "data": "id", "visible": false }, //Cambio hecho: agregar "visible": false para esconder el id en la tabla
+            { "data": "nombre" },
+            { "data": null,
+              "render": function ( data, type, row ) {
+                return '<button onclick="eliminarAutor(' + row.id + ')">Eliminar</button>';
+              }
+            }
+        ]
+    });
+
+    var tablaLibros = $('#tabla-libros').DataTable({
+        "ajax": "/obtener_libros/",
+        "columns": [
+            { "data": "id", "visible": false },
+            { "data": "titulo" },
+            { "data": "autor" },
+            { "data": null,
+              "render": function ( data, type, row ) {
+                return '<button onclick="eliminarLibro(' + row.id + ')">Eliminar</button>';
+              }
+            }
+        ]
+    });
+
+    // Agregar autor
+    $("#formAgregarAutor").submit(function(event) {
+      event.preventDefault(); 
+      var formData = $(this).serialize(); 
+      $.ajax({
+        type: "POST",
+        url: "/agregar_autor/",  
+        data: formData,
+        success: function(response) {
+          if (response.status === 'ok') {
+            cerrarModalAgregarAutor(); 
+            tablaAutores.ajax.reload(); 
+          } else {  //Manejar errores de validación del formulario
+            // Manejar errores de validación del formulario
+            var errorMessages = "";
+            $.each(response.errors, function(key, value) {
+              errorMessages += value + "<br>";
+            });
+            alert("Error al agregar autor:\n" + errorMessages);
+          }
+        },
+        error: function() {
+          alert("Error en la solicitud AJAX.");
+        }
+      });
+    });
+
+    // Agregar libro
+    $("#formAgregarLibro").submit(function(event) {
+      event.preventDefault();
+      var formData = $(this).serialize();
+      $.ajax({
+        type: "POST",
+        url: "/agregar_libro/",
+        data: formData,
+        success: function(response) {
+          if (response.status === 'ok') {
+            cerrarModalAgregarLibro();
+            tablaLibros.ajax.reload();
+          } else {
+              // Manejar errores de validación del formulario
+              var errorMessages = "";
+            $.each(response.errors, function(key, value) {
+              errorMessages += value + "<br>";
+            });
+            alert("Error al agregar libro:\n" + errorMessages);
+          }
+        },
+        error: function() {
+          alert("Error en la solicitud AJAX.");
+        }
+      });
+    });
+} );
+
+function abrirModalAgregarAutor() {
+    document.getElementById("modalAgregarAutor").style.display = "block";
+}
+
+function cerrarModalAgregarAutor() {
+    document.getElementById("modalAgregarAutor").style.display = "none";
+    document.getElementById("formAgregarAutor").reset();
+}
+
+function abrirModalAgregarLibro() {
+    ActualizaListaAutores(); //Carga la lista de autores al abrir el modal de agregar libros
+    document.getElementById("modalAgregarLibro").style.display = "block";
+}
+
+function cerrarModalAgregarLibro() {
+    document.getElementById("modalAgregarLibro").style.display = "none";
+    document.getElementById("formAgregarLibro").reset();
+}
+
+function eliminarAutor(id) {
+  if (confirm("¿Estás seguro de que quieres eliminar este autor?")) {
+    $.ajax({
+      type: "POST",
+      url: "/eliminar_autor/" + id + "/",
+      data: {
+        csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+      },
+      success: function(response) {
+        if (response.status === 'ok') {
+          $('#tabla-autores').DataTable().ajax.reload()
+          $('#tabla-libros').DataTable().ajax.reload();   //Cambio: Agregar esta linea para que se actualice la tabla de libros al eliminar el autor
+        } else {  
+          alert("Error al eliminar autor.");
+        }
+      },
+      error: function() {
+        alert("Error en la solicitud AJAX.");
+      }
+    });
+  }
+}
+
+function eliminarLibro(id) {
+  if (confirm("¿Estás seguro de que quieres eliminar este libro?")) {
+    $.ajax({
+      type: "POST",
+      url: "/eliminar_libro/" + id + "/",
+      data: {
+        csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+      },
+      success: function(response) {
+        if (response.status === 'ok') {
+          $('#tabla-libros').DataTable().ajax.reload();
+        } else {
+          alert("Error al eliminar libro: " + response.message);
+        }
+      },
+      error: function() {
+        alert("Error en la solicitud AJAX.");
+      }
+    });
+  }
+}
+
+function ActualizaListaAutores() {
+    fetch("/obtener_autores/")    // Realiza una solicitud a la URL para obtener la lista de autores
+        .then(response => {
+            if (!response.ok) {   // Verifica si la respuesta es correcta
+                throw new Error("Error al cargar la lista de autores.");
+            }
+            return response.json();   // Convierte la respuesta a formato JSON
+        })
+        .then(data => {
+            const selectAutor = document.getElementById("autor");   // Selecciona el elemento <select> donde se mostrarán los autores
+            selectAutor.innerHTML = ""; // Limpia las opciones actuales del <select>
+            data.data.forEach(autor => {    // Recorre la lista de autores y agrega cada uno como opción
+                const option = document.createElement("option");
+                option.value = autor.id;
+                option.textContent = autor.nombre;
+                selectAutor.appendChild(option);    // Añade la opción al <select>
+            });
+        })
+        .catch(error => {
+            alert(error.message);   // Muestra una alerta en caso de error
+        });
+}
+</script>
+</body>
+</html>
+
+<!-- Cambio hecho: agregar funcion de ActualizaListaAutores y su llamado en abrirModalAgregarLibro-->
